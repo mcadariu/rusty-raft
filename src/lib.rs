@@ -65,16 +65,13 @@ pub enum RaftMessage {
 }
 
 pub struct RaftState {
-    // Persistent state
     pub current_term: Term,
     pub voted_for: Option<NodeId>,
     pub log: Vec<LogEntry>,
 
-    // Volatile state
     pub commit_index: LogIndex,
     pub last_applied: LogIndex,
 
-    // Leader state
     pub next_index: HashMap<NodeId, LogIndex>,
     pub match_index: HashMap<NodeId, LogIndex>,
 }
@@ -148,7 +145,7 @@ impl RaftNode {
         self.state.current_term += 1;
         self.role = Role::Candidate;
         self.state.voted_for = Some(self.id.clone());
-        self.votes_received = 1; // Vote for self
+        self.votes_received = 1;
         self.leader_id = None;
         info!("[{}] Becoming candidate for term {}", self.id, self.state.current_term);
     }
@@ -158,7 +155,6 @@ impl RaftNode {
         self.role = Role::Leader;
         self.leader_id = Some(self.id.clone());
 
-        // Initialize leader state
         let next_index = self.last_log_index() + 1;
         for peer in &self.peers {
             self.state.next_index.insert(peer.clone(), next_index);
@@ -206,14 +202,12 @@ impl RaftNode {
             };
         }
 
-        // Reset to follower if we're a candidate
         if self.role == Role::Candidate {
             self.become_follower(req.term);
         }
 
         self.leader_id = Some(req.leader_id.clone());
 
-        // Check if log contains an entry at prev_log_index with matching term
         if req.prev_log_index > 0 {
             if req.prev_log_index > self.state.log.len() as LogIndex {
                 return AppendEntriesResponse {
@@ -225,7 +219,6 @@ impl RaftNode {
 
             let prev_entry = &self.state.log[req.prev_log_index as usize - 1];
             if prev_entry.term != req.prev_log_term {
-                // Delete conflicting entry and all that follow
                 self.state.log.truncate(req.prev_log_index as usize - 1);
                 return AppendEntriesResponse {
                     term: self.state.current_term,
@@ -235,10 +228,8 @@ impl RaftNode {
             }
         }
 
-        // Append new entries
         for entry in req.entries {
             if entry.index <= self.state.log.len() as LogIndex {
-                // Check for conflicts
                 if self.state.log[entry.index as usize - 1].term != entry.term {
                     self.state.log.truncate(entry.index as usize - 1);
                     self.state.log.push(entry);
@@ -293,7 +284,6 @@ impl RaftNode {
             self.state.match_index.insert(peer.clone(), resp.match_index);
             self.state.next_index.insert(peer.clone(), resp.match_index + 1);
 
-            // Update commit index
             let mut match_indices: Vec<LogIndex> =
                 self.state.match_index.values().copied().collect();
             match_indices.push(self.state.log.len() as LogIndex);
@@ -311,7 +301,6 @@ impl RaftNode {
                 }
             }
         } else {
-            // Decrement next_index and retry
             let next_idx = self.state.next_index.get(&peer).copied().unwrap_or(1);
             if next_idx > 1 {
                 self.state.next_index.insert(peer, next_idx - 1);
@@ -349,7 +338,6 @@ pub async fn run_raft_node(
         n.id.clone()
     };
 
-    // Start RPC server
     let node_clone = node.clone();
     tokio::spawn(async move {
         let listener = TcpListener::bind(&listen_addr).await.unwrap();
@@ -387,7 +375,6 @@ pub async fn run_raft_node(
         }
     });
 
-    // Main loop
     loop {
         sleep(Duration::from_millis(50)).await;
 
@@ -398,14 +385,11 @@ pub async fn run_raft_node(
 
         match role {
             Role::Follower => {
-                // Follower timeout logic would go here
             }
             Role::Candidate => {
-                // Run election
                 run_election(node.clone()).await;
             }
             Role::Leader => {
-                // Send heartbeats
                 send_heartbeats(node.clone()).await;
             }
         }
