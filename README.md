@@ -1,1 +1,1 @@
-An implementation of the [Raft](https://raft.github.io/) consensus protocol and a set of corresponding [turmoil](https://docs.rs/turmoil/latest/turmoil/) tests introducing network partitions.
+An implementation of the [Raft](https://raft.github.io/) consensus protocol and a set of corresponding [turmoil](https://docs.rs/turmoil/latest/turmoil/) tests introducing network partitions. Build while following Daniel Kleppmann's [distributed systems course](https://www.youtube.com/watch?v=UEAMfLPZZhE&list=PLeKd45zvjcDFUEv_ohr_HdUFe97RItdiB).
